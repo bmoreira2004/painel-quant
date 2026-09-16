@@ -157,41 +157,20 @@ PRODUTOS_B3 = {
 # são negociados em bolsa com candlestick/OHLC público — por isso este painel
 # técnico (RSI, MACD, Bollinger etc.) não se aplica a eles. Eles aparecem na
 # lista de painéis só para explicar essa diferença, não para análise.
+# ==============================================================================
+# PAINÉIS SEM DADOS DE MERCADO (renda fixa, cotas e direitos de subscrição)
+# ==============================================================================
+# Estes produtos existem no Toro, no Nubank e em outras corretoras, mas NÃO
+# são negociados em bolsa com candlestick/OHLC público — por isso este painel
+# técnico (RSI, MACD, Bollinger etc.) não se aplica a eles. Eles aparecem na
+# lista de painéis só para explicar essa diferença, não para análise.
 PAINEIS_SEM_DADOS = {
-    "CDB": (
-        "Certificados de Depósito Bancário são produtos de renda fixa emitidos "
-        "diretamente por bancos — não têm ticker nem histórico de preço público, "
-        "então não existe candlestick ou oscilador técnico para eles. Para "
-        "comparar taxas de CDB, consulte diretamente o app do seu banco ou corretora."
-    ),
-    "LCI / LCA": (
-        "Letras de Crédito Imobiliário e do Agronegócio são títulos de renda fixa "
-        "isentos de Imposto de Renda, emitidos por bancos — pelo mesmo motivo do "
-        "CDB, não têm ticker nem candlestick público. Compare as taxas oferecidas "
-        "diretamente na sua corretora ou banco."
-    ),
-    "Tesouro Direto": (
-        "Títulos públicos federais têm um Preço Unitário (PU) e uma taxa de "
-        "rendimento divulgados diariamente pelo Tesouro Nacional, mas não seguem "
-        "o formato de candlestick/OHLC usado neste painel — a lógica de compra e "
-        "venda de Tesouro Direto é sobre prazo e taxa, não sobre osciladores de "
-        "curto prazo. Uma análise de Tesouro Direto seria um módulo separado, "
-        "diferente deste motor de sinais técnicos."
-    ),
     "Fundos de Investimento": (
         "Fundos de investimento (multimercado, renda fixa, ações etc.) têm o "
         "valor da cota divulgado diariamente pelo administrador, mas não há uma "
         "fonte pública e padronizada de dados históricos como o yfinance oferece "
         "para ações — cada fundo tem seu próprio CNPJ e a fonte de dados varia "
         "por administradora."
-    ),
-    "Subscrições": (
-        "Direitos de subscrição são ativos temporários — só existem durante a "
-        "janela de um aumento de capital específico de uma empresa, com um ticker "
-        "próprio que muda a cada evento. Por isso não é possível manter uma lista "
-        "fixa deles aqui. Se você tiver o código de uma subscrição em andamento, "
-        "pode tentar digitá-lo na opção 'Digitar ticker manualmente' (nem sempre "
-        "o Yahoo Finance tem dados para esses códigos)."
     ),
 }
 
@@ -205,11 +184,7 @@ CORES_PAINEL = {
     "Fundos Imobiliários (FIIs)": "#8D6E63",  # marrom (tijolo)
     "Fundos de Índice (ETFs)": "#1565C0",     # azul
     "Ações Globais (BDRs)": "#6A1B9A",        # roxo
-    "CDB": "#F9A825",                         # âmbar
-    "LCI / LCA": "#EF6C00",                   # laranja
-    "Tesouro Direto": "#00838F",              # azul petróleo
     "Fundos de Investimento": "#5D4037",      # marrom escuro
-    "Subscrições": "#C62828",                 # vermelho
 }
 COR_PADRAO_PAINEL = "#607D8B"  # usada como fallback (modo "digitar ticker manualmente")
 
@@ -449,6 +424,121 @@ def sugerir_stop_take(preco_atual: float, atr: float, score: int):
         return {"direcao": "NEUTRO", "stop": None, "alvo": None, "atr": atr}
 
 
+def montar_visao_geral(df: pd.DataFrame) -> dict:
+    """
+    Monta os dados do painel "Visão Geral" (estilo dashboard): agrupa TODOS
+    os indicadores técnicos em 4 categorias (Tendência, Osciladores,
+    Volatilidade, Volume e Fluxo) — inclusive os que não entram no score
+    (Bandas de Bollinger, ATR, EMA 9/21) — cada um com seu valor atual e um
+    status visual (verde = favorável, vermelho = desfavorável, cinza = neutro).
+
+    Retorna um dicionário {categoria: [(nome, valor_formatado, cor), ...]}.
+    """
+    if len(df) < 2:
+        return {}
+
+    atual = df.iloc[-1]
+
+    rsi_col_n = col(df, "RSI")
+    k_col_n = col(df, "STOCHk")
+    macdh_col_n = col(df, "MACDh")
+    bbl_col_n = col(df, "BBL")
+    bbu_col_n = col(df, "BBU")
+    atr_col_n = col(df, "ATR")
+    obv_col_n = col(df, "OBV")
+
+    VERDE, VERMELHO, CINZA = "#2E7D32", "#C62828", "#757575"
+    categorias: dict = {}
+
+    # --- A) Tendência ---
+    tendencia = []
+    if "EMA_9" in df.columns and "EMA_21" in df.columns and pd.notna(atual["EMA_9"]) and pd.notna(atual["EMA_21"]):
+        alta = atual["EMA_9"] > atual["EMA_21"]
+        tendencia.append(("EMA 9 vs EMA 21", "Alinhamento de alta" if alta else "Alinhamento de baixa", VERDE if alta else VERMELHO))
+    if "SMA_200" in df.columns and pd.notna(atual["SMA_200"]):
+        acima = atual["Close"] > atual["SMA_200"]
+        tendencia.append(("Preço vs SMA 200", f"{atual['SMA_200']:.2f} ({'acima' if acima else 'abaixo'})", VERDE if acima else VERMELHO))
+    if "VWAP" in df.columns and pd.notna(atual["VWAP"]):
+        acima = atual["Close"] > atual["VWAP"]
+        tendencia.append(("Preço vs VWAP", f"{atual['VWAP']:.2f} ({'acima' if acima else 'abaixo'})", VERDE if acima else VERMELHO))
+    categorias["📈 Tendência"] = tendencia
+
+    # --- B) Osciladores ---
+    osciladores = []
+    if rsi_col_n and pd.notna(atual[rsi_col_n]):
+        rsi = atual[rsi_col_n]
+        cor = VERMELHO if rsi > 70 else (VERDE if rsi < 30 else CINZA)
+        osciladores.append(("RSI / IFR (14)", f"{rsi:.1f}", cor))
+    if k_col_n and pd.notna(atual[k_col_n]):
+        k = atual[k_col_n]
+        cor = VERMELHO if k > 80 else (VERDE if k < 20 else CINZA)
+        osciladores.append(("Estocástico %K", f"{k:.1f}", cor))
+    if macdh_col_n and pd.notna(atual[macdh_col_n]):
+        h = atual[macdh_col_n]
+        cor = VERDE if h > 0 else VERMELHO
+        osciladores.append(("MACD (histograma)", f"{h:+.3f}", cor))
+    categorias["🌊 Osciladores"] = osciladores
+
+    # --- C) Volatilidade ---
+    volatilidade = []
+    if atr_col_n and pd.notna(atual[atr_col_n]) and atual["Close"]:
+        atr_pct = atual[atr_col_n] / atual["Close"] * 100
+        if atr_pct > 3:
+            cor, rotulo = VERMELHO, "alta"
+        elif atr_pct > 1:
+            cor, rotulo = CINZA, "moderada"
+        else:
+            cor, rotulo = VERDE, "baixa"
+        volatilidade.append(("ATR (14)", f"{atual[atr_col_n]:.2f} — volatilidade {rotulo} ({atr_pct:.1f}%)", cor))
+    if bbl_col_n and bbu_col_n and pd.notna(atual[bbl_col_n]) and pd.notna(atual[bbu_col_n]):
+        largura = atual[bbu_col_n] - atual[bbl_col_n]
+        pos = (atual["Close"] - atual[bbl_col_n]) / largura if largura else 0.5
+        if pos > 0.8:
+            cor, rotulo = VERMELHO, "perto da banda superior"
+        elif pos < 0.2:
+            cor, rotulo = VERDE, "perto da banda inferior"
+        else:
+            cor, rotulo = CINZA, "região central"
+        volatilidade.append(("Posição nas Bandas de Bollinger", f"{pos * 100:.0f}% — {rotulo}", cor))
+    categorias["📊 Volatilidade"] = volatilidade
+
+    # --- D) Volume e Fluxo ---
+    volume = []
+    if "VOL_MA20" in df.columns and pd.notna(atual["VOL_MA20"]):
+        acima = atual["Volume"] > atual["VOL_MA20"]
+        volume.append(("Volume vs Média 20", "Acima da média" if acima else "Abaixo da média", VERDE if acima else CINZA))
+    if obv_col_n and "OBV_MA10" in df.columns and pd.notna(atual.get("OBV_MA10")):
+        subindo = atual[obv_col_n] > atual["OBV_MA10"]
+        volume.append(("OBV", "Acumulação institucional" if subindo else "Distribuição institucional", VERDE if subindo else VERMELHO))
+    categorias["📦 Volume e Fluxo"] = volume
+
+    return categorias
+
+
+def renderizar_card_categoria(titulo: str, itens: list) -> None:
+    """Renderiza um card de categoria (usado na aba Visão Geral) com uma linha por indicador."""
+    linhas_html = "".join(
+        f'<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; '
+        f'padding:7px 0; border-bottom:1px solid rgba(128,128,128,0.18);">'
+        f'<span>{nome}</span>'
+        f'<span style="color:{cor}; font-weight:700; text-align:right;">{valor}</span>'
+        f'</div>'
+        for nome, valor, cor in itens
+    )
+    if not linhas_html:
+        linhas_html = '<div style="opacity:0.6;">Sem dados suficientes neste período.</div>'
+    st.markdown(
+        f"""
+        <div style="border:1px solid rgba(128,128,128,0.25); border-radius:12px;
+                    padding:16px 20px; margin-bottom:16px;">
+            <div style="font-size:16px; font-weight:700; margin-bottom:6px;">{titulo}</div>
+            {linhas_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def montar_grafico(df: pd.DataFrame, ticker: str, modo_escuro: bool = False) -> go.Figure:
     """
     Monta o gráfico interativo completo (Plotly) com 7 painéis empilhados,
@@ -573,6 +663,31 @@ if modo_escuro:
         .stApp, .stApp p, .stApp span, .stApp label, .stApp li { color: #FAFAFA; }
         div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] { color: #FAFAFA !important; }
         div[data-testid="stDataFrame"] { filter: invert(0.92) hue-rotate(180deg); }
+
+        /* Caixas dos menus (Painel / Segmento / Produto / Período / Intervalo) */
+        div[data-baseweb="select"] > div {
+            background-color: #262730 !important;
+            color: #FAFAFA !important;
+            border-color: #3A3B45 !important;
+        }
+        div[data-baseweb="select"] svg { fill: #FAFAFA !important; }
+
+        /* Lista de opções que abre ao clicar (fica fora da sidebar, por isso é à parte) */
+        div[data-baseweb="popover"] li,
+        ul[role="listbox"] li {
+            background-color: #262730 !important;
+            color: #FAFAFA !important;
+        }
+        div[data-baseweb="popover"] li:hover,
+        ul[role="listbox"] li:hover {
+            background-color: #3A3B45 !important;
+        }
+
+        /* Campo de texto manual do ticker */
+        div[data-testid="stTextInput"] input {
+            background-color: #262730 !important;
+            color: #FAFAFA !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -731,9 +846,23 @@ st.markdown(
 st.toast(f"{classificacao} — {ticker} (score {score:+d})", icon="🔔")
 
 # --- Navegação por abas: deixa o painel mais organizado e interativo ---
-aba_grafico, aba_sinais, aba_risco = st.tabs(
-    ["📊 Gráfico Técnico", "🧮 Motor de Sinais", "🛡️ Gerenciamento de Risco"]
+aba_visao, aba_grafico, aba_sinais, aba_risco = st.tabs(
+    ["📋 Visão Geral", "📊 Gráfico Técnico", "🧮 Motor de Sinais", "🛡️ Gerenciamento de Risco"]
 )
+
+with aba_visao:
+    st.subheader("📋 Visão Geral — Painel de Indicadores")
+    st.caption("Todos os indicadores organizados por categoria, com o valor atual e o status de cada um.")
+    visao = montar_visao_geral(df)
+    if visao:
+        categorias_lista = list(visao.items())
+        coluna_esq, coluna_dir = st.columns(2)
+        colunas_grid = [coluna_esq, coluna_dir]
+        for i, (titulo_cat, itens_cat) in enumerate(categorias_lista):
+            with colunas_grid[i % 2]:
+                renderizar_card_categoria(titulo_cat, itens_cat)
+    else:
+        st.info("Dados insuficientes para montar a visão geral neste período/intervalo.")
 
 with aba_grafico:
     st.plotly_chart(montar_grafico(df, ticker, modo_escuro), use_container_width=True)
