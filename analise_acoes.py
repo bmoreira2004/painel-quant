@@ -53,8 +53,14 @@ st.set_page_config(page_title="Painel Quant — Análise de Ações", layout="wi
 # Esta é uma curadoria dos ativos mais líquidos/conhecidos de cada categoria —
 # a B3 lista centenas de produtos, então nem todos cabem aqui. Se o ativo que
 # você procura não estiver na lista, use a opção "Digitar ticker manualmente".
+#
+# IMPORTANTE: só entram aqui categorias de produtos NEGOCIADOS EM BOLSA, com
+# histórico público de preço (OHLC) compatível com candlestick e osciladores
+# técnicos. Produtos de renda fixa bancária (CDB, LCI/LCA), Tesouro Direto,
+# cotas de fundos de investimento e direitos de subscrição não entram aqui —
+# eles aparecem no dicionário PAINEIS_SEM_DADOS logo abaixo, com explicação.
 PRODUTOS_B3 = {
-    "Ações": {
+    "Ações Brasileiras": {
         "Bancos e Serviços Financeiros": {
             "ITUB4": "Itaú Unibanco", "BBDC4": "Bradesco", "BBAS3": "Banco do Brasil",
             "SANB11": "Santander Brasil", "BPAC11": "BTG Pactual", "B3SA3": "B3",
@@ -62,69 +68,150 @@ PRODUTOS_B3 = {
         },
         "Petróleo, Gás e Combustíveis": {
             "PETR4": "Petrobras PN", "PETR3": "Petrobras ON", "PRIO3": "PetroRio",
-            "UGPA3": "Ultrapar", "VBBR3": "Vibra Energia",
+            "UGPA3": "Ultrapar", "VBBR3": "Vibra Energia", "RRRP3": "3R Petroleum",
         },
         "Mineração e Siderurgia": {
             "VALE3": "Vale", "CSNA3": "CSN", "GGBR4": "Gerdau", "USIM5": "Usiminas",
+            "CMIN3": "CSN Mineração", "GOAU4": "Metalúrgica Gerdau",
         },
         "Energia Elétrica": {
             "ELET3": "Eletrobras ON", "ELET6": "Eletrobras PNB", "CMIG4": "Cemig",
             "CPLE6": "Copel", "EGIE3": "Engie Brasil", "EQTL3": "Equatorial",
-            "TAEE11": "Taesa",
+            "TAEE11": "Taesa", "CPFE3": "CPFL Energia",
         },
         "Varejo e Consumo": {
             "MGLU3": "Magazine Luiza", "LREN3": "Lojas Renner", "ARZZ3": "Arezzo",
-            "PETZ3": "Petz", "VIVA3": "Vivara",
+            "PETZ3": "Petz", "VIVA3": "Vivara", "ASAI3": "Assaí",
+            "CRFB3": "Carrefour Brasil",
         },
         "Bebidas e Alimentos": {
             "ABEV3": "Ambev", "JBSS3": "JBS", "BRFS3": "BRF", "MRFG3": "Marfrig",
-            "SMTO3": "São Martinho",
+            "SMTO3": "São Martinho", "BEEF3": "Minerva",
         },
-        "Papel, Celulose e Bens de Capital": {
-            "SUZB3": "Suzano", "KLBN11": "Klabin", "WEGE3": "WEG", "EMBR3": "Embraer",
+        "Papel e Celulose": {
+            "SUZB3": "Suzano", "KLBN11": "Klabin",
+        },
+        "Bens de Capital e Industrial": {
+            "WEGE3": "WEG", "EMBR3": "Embraer", "RAPT4": "Randon",
         },
         "Saúde": {
             "RDOR3": "Rede D'Or", "HAPV3": "Hapvida", "FLRY3": "Fleury", "RADL3": "Raia Drogasil",
+            "QUAL3": "Qualicorp",
         },
         "Tecnologia e Telecom": {
             "TOTS3": "Totvs", "VIVT3": "Telefônica Brasil (Vivo)", "TIMS3": "TIM",
         },
         "Construção Civil": {
-            "CYRE3": "Cyrela", "MRVE3": "MRV", "EZTC3": "Eztec",
+            "CYRE3": "Cyrela", "MRVE3": "MRV", "EZTC3": "Eztec", "TEND3": "Tenda",
         },
         "Transporte e Logística": {
-            "RENT3": "Localiza", "RAIL3": "Rumo", "CCRO3": "CCR",
+            "RENT3": "Localiza", "RAIL3": "Rumo", "CCRO3": "CCR", "AZUL4": "Azul",
+        },
+        "Seguros": {
+            "BBSE3": "BB Seguridade", "PSSA3": "Porto Seguro", "CXSE3": "Caixa Seguridade",
+        },
+        "Agronegócio": {
+            "SLCE3": "SLC Agrícola", "AGRO3": "BrasilAgro",
         },
     },
-    "FIIs (Fundos Imobiliários)": {
+    "Fundos Imobiliários (FIIs)": {
         "Papel / Recebíveis": {
             "MXRF11": "Maxi Renda", "KNCR11": "Kinea Rendimentos", "KNIP11": "Kinea Índices de Preços",
             "IRDM11": "Iridium Recebíveis", "CPTS11": "Capitânia Securities", "RECR11": "REC Recebíveis Imobiliários",
+            "VGIP11": "Valora CRI Índice de Preços",
         },
         "Tijolo (Lajes, Shoppings e Logística)": {
             "KNRI11": "Kinea Renda Imobiliária", "HGLG11": "CSHG Logística", "XPML11": "XP Malls",
             "VISC11": "Vinci Shopping Centers", "HGRE11": "CSHG Real Estate", "BRCO11": "Bresco Logística",
+            "VILG11": "Vinci Logística", "PVBI11": "Pátria Edifícios Corporativos",
         },
         "Fundo de Fundos (FOFs)": {
             "BCFF11": "BTG Pactual Fundo de Fundos", "HFOF11": "Hedge FOFII", "RBFF11": "Rio Bravo FoF",
         },
     },
-    "ETFs": {
+    "Fundos de Índice (ETFs)": {
         "Índices e Renda Variável": {
             "BOVA11": "iShares Ibovespa", "SMAL11": "iShares Small Cap", "IVVB11": "iShares S&P 500",
             "DIVO11": "It Now IDIV (Dividendos)", "GOLD11": "It Now Ouro", "HASH11": "Hashdex Cripto",
+            "FIND11": "It Now Financeiro", "ISUS11": "It Now ISE (Sustentabilidade)",
         },
     },
-    "BDRs (Empresas Estrangeiras)": {
+    "Ações Globais (BDRs)": {
         "Tecnologia": {
             "AAPL34": "Apple", "MSFT34": "Microsoft", "GOGL34": "Alphabet (Google)",
             "AMZO34": "Amazon", "NVDC34": "Nvidia", "META34": "Meta", "NFLX34": "Netflix",
+            "TSLA34": "Tesla", "INTC34": "Intel",
         },
-        "Consumo e Outros": {
-            "DISB34": "Disney", "COCA34": "Coca-Cola", "MCDC34": "McDonald's", "JPMC34": "JPMorgan",
+        "Consumo e Financeiro": {
+            "DISB34": "Disney", "COCA34": "Coca-Cola", "MCDC34": "McDonald's",
+            "JPMC34": "JPMorgan", "BOAC34": "Bank of America", "WALM34": "Walmart",
+            "VISA34": "Visa", "MSCD34": "Mastercard",
         },
     },
 }
+
+# ==============================================================================
+# PAINÉIS SEM DADOS DE MERCADO (renda fixa, cotas e direitos de subscrição)
+# ==============================================================================
+# Estes produtos existem no Toro, no Nubank e em outras corretoras, mas NÃO
+# são negociados em bolsa com candlestick/OHLC público — por isso este painel
+# técnico (RSI, MACD, Bollinger etc.) não se aplica a eles. Eles aparecem na
+# lista de painéis só para explicar essa diferença, não para análise.
+PAINEIS_SEM_DADOS = {
+    "CDB": (
+        "Certificados de Depósito Bancário são produtos de renda fixa emitidos "
+        "diretamente por bancos — não têm ticker nem histórico de preço público, "
+        "então não existe candlestick ou oscilador técnico para eles. Para "
+        "comparar taxas de CDB, consulte diretamente o app do seu banco ou corretora."
+    ),
+    "LCI / LCA": (
+        "Letras de Crédito Imobiliário e do Agronegócio são títulos de renda fixa "
+        "isentos de Imposto de Renda, emitidos por bancos — pelo mesmo motivo do "
+        "CDB, não têm ticker nem candlestick público. Compare as taxas oferecidas "
+        "diretamente na sua corretora ou banco."
+    ),
+    "Tesouro Direto": (
+        "Títulos públicos federais têm um Preço Unitário (PU) e uma taxa de "
+        "rendimento divulgados diariamente pelo Tesouro Nacional, mas não seguem "
+        "o formato de candlestick/OHLC usado neste painel — a lógica de compra e "
+        "venda de Tesouro Direto é sobre prazo e taxa, não sobre osciladores de "
+        "curto prazo. Uma análise de Tesouro Direto seria um módulo separado, "
+        "diferente deste motor de sinais técnicos."
+    ),
+    "Fundos de Investimento": (
+        "Fundos de investimento (multimercado, renda fixa, ações etc.) têm o "
+        "valor da cota divulgado diariamente pelo administrador, mas não há uma "
+        "fonte pública e padronizada de dados históricos como o yfinance oferece "
+        "para ações — cada fundo tem seu próprio CNPJ e a fonte de dados varia "
+        "por administradora."
+    ),
+    "Subscrições": (
+        "Direitos de subscrição são ativos temporários — só existem durante a "
+        "janela de um aumento de capital específico de uma empresa, com um ticker "
+        "próprio que muda a cada evento. Por isso não é possível manter uma lista "
+        "fixa deles aqui. Se você tiver o código de uma subscrição em andamento, "
+        "pode tentar digitá-lo na opção 'Digitar ticker manualmente' (nem sempre "
+        "o Yahoo Finance tem dados para esses códigos)."
+    ),
+}
+
+# ==============================================================================
+# CORES POR CATEGORIA (para deixar o painel mais visual/interativo)
+# ==============================================================================
+# Cada painel (negociável ou não) recebe uma cor própria, usada nos selos
+# exibidos na barra lateral e no topo da página principal.
+CORES_PAINEL = {
+    "Ações Brasileiras": "#2E7D32",           # verde
+    "Fundos Imobiliários (FIIs)": "#8D6E63",  # marrom (tijolo)
+    "Fundos de Índice (ETFs)": "#1565C0",     # azul
+    "Ações Globais (BDRs)": "#6A1B9A",        # roxo
+    "CDB": "#F9A825",                         # âmbar
+    "LCI / LCA": "#EF6C00",                   # laranja
+    "Tesouro Direto": "#00838F",              # azul petróleo
+    "Fundos de Investimento": "#5D4037",      # marrom escuro
+    "Subscrições": "#C62828",                 # vermelho
+}
+COR_PADRAO_PAINEL = "#607D8B"  # usada como fallback (modo "digitar ticker manualmente")
 
 
 # ==============================================================================
@@ -362,7 +449,7 @@ def sugerir_stop_take(preco_atual: float, atr: float, score: int):
         return {"direcao": "NEUTRO", "stop": None, "alvo": None, "atr": atr}
 
 
-def montar_grafico(df: pd.DataFrame, ticker: str) -> go.Figure:
+def montar_grafico(df: pd.DataFrame, ticker: str, modo_escuro: bool = False) -> go.Figure:
     """
     Monta o gráfico interativo completo (Plotly) com 7 painéis empilhados,
     todos compartilhando o mesmo eixo X (tempo):
@@ -462,6 +549,9 @@ def montar_grafico(df: pd.DataFrame, ticker: str) -> go.Figure:
         margin=dict(l=10, r=10, t=40, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.015, xanchor="right", x=1),
         hovermode="x unified",
+        template="plotly_dark" if modo_escuro else "plotly_white",
+        paper_bgcolor="rgba(0,0,0,0)",  # fundo transparente: acompanha o fundo da página
+        plot_bgcolor="rgba(0,0,0,0)" if modo_escuro else "white",
     )
     return fig
 
@@ -471,6 +561,23 @@ def montar_grafico(df: pd.DataFrame, ticker: str) -> go.Figure:
 # ==============================================================================
 st.sidebar.title("⚙️ Parâmetros de Análise")
 
+modo_escuro = st.sidebar.toggle("🌙 Modo escuro", value=False)
+
+if modo_escuro:
+    st.markdown(
+        """
+        <style>
+        .stApp { background-color: #0E1117; color: #FAFAFA; }
+        section[data-testid="stSidebar"] { background-color: #161A23; }
+        section[data-testid="stSidebar"] * { color: #FAFAFA !important; }
+        .stApp, .stApp p, .stApp span, .stApp label, .stApp li { color: #FAFAFA; }
+        div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] { color: #FAFAFA !important; }
+        div[data-testid="stDataFrame"] { filter: invert(0.92) hue-rotate(180deg); }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 modo_escolha = st.sidebar.radio(
     "Como deseja escolher o ativo?",
     options=["Explorar por painel", "Digitar ticker manualmente"],
@@ -478,15 +585,29 @@ modo_escolha = st.sidebar.radio(
 )
 
 if modo_escolha == "Explorar por painel":
-    painel_escolhido = st.sidebar.selectbox("📂 Painel", options=list(PRODUTOS_B3.keys()))
-    segmentos_do_painel = PRODUTOS_B3[painel_escolhido]
-    segmento_escolhido = st.sidebar.selectbox("📁 Segmento", options=list(segmentos_do_painel.keys()))
-    produtos_do_segmento = segmentos_do_painel[segmento_escolhido]
-    opcoes_produto = [f"{tk} — {nome}" for tk, nome in produtos_do_segmento.items()]
-    produto_escolhido = st.sidebar.selectbox("🏷️ Produto", options=opcoes_produto)
-    ticker_base = produto_escolhido.split(" — ")[0]
-    ticker = f"{ticker_base}.SA"
-    st.sidebar.caption(f"Ticker selecionado: **{ticker}**")
+    todos_os_paineis = list(PRODUTOS_B3.keys()) + list(PAINEIS_SEM_DADOS.keys())
+    painel_escolhido = st.sidebar.selectbox("📂 Painel", options=todos_os_paineis)
+
+    cor_painel = CORES_PAINEL.get(painel_escolhido, COR_PADRAO_PAINEL)
+    st.sidebar.markdown(
+        f'<span style="background:{cor_painel}; color:white; padding:3px 12px; '
+        f'border-radius:14px; font-size:13px; font-weight:600;">📂 {painel_escolhido}</span>',
+        unsafe_allow_html=True,
+    )
+
+    if painel_escolhido in PAINEIS_SEM_DADOS:
+        # Painel informativo: produto de renda fixa/cota, sem candlestick disponível.
+        ticker = None
+        st.sidebar.warning(PAINEIS_SEM_DADOS[painel_escolhido])
+    else:
+        segmentos_do_painel = PRODUTOS_B3[painel_escolhido]
+        segmento_escolhido = st.sidebar.selectbox("📁 Segmento", options=list(segmentos_do_painel.keys()))
+        produtos_do_segmento = segmentos_do_painel[segmento_escolhido]
+        opcoes_produto = [f"{tk} — {nome}" for tk, nome in produtos_do_segmento.items()]
+        produto_escolhido = st.sidebar.selectbox("🏷️ Produto", options=opcoes_produto)
+        ticker_base = produto_escolhido.split(" — ")[0]
+        ticker = f"{ticker_base}.SA"
+        st.sidebar.caption(f"Ticker selecionado: **{ticker}**")
 else:
     ticker = st.sidebar.text_input(
         "Ticker da ação",
@@ -541,8 +662,23 @@ with st.sidebar.expander("ℹ️ Como funciona o score"):
 st.title("📈 Painel Quant — Análise de Ações")
 st.caption("Swing Trade & Day Trade · Sinais baseados em painel multindicadores")
 
+if modo_escolha == "Explorar por painel":
+    _cor_topo = CORES_PAINEL.get(painel_escolhido, COR_PADRAO_PAINEL)
+    st.markdown(
+        f'<span style="background:{_cor_topo}; color:white; padding:4px 14px; '
+        f'border-radius:16px; font-size:14px; font-weight:600;">📂 {painel_escolhido}</span>',
+        unsafe_allow_html=True,
+    )
+
 if not ticker:
-    st.info("Digite um ticker na barra lateral e clique em **Analisar Ação** para começar.")
+    if modo_escolha == "Explorar por painel" and painel_escolhido in PAINEIS_SEM_DADOS:
+        st.info(
+            f"**{painel_escolhido}** não possui candlestick nem indicadores técnicos "
+            "neste painel — veja a explicação na barra lateral. Escolha outro painel "
+            "(Ações, FIIs, ETFs ou BDRs) para rodar a análise."
+        )
+    else:
+        st.info("Digite um ticker na barra lateral e clique em **Analisar Ação** para começar.")
     st.stop()
 
 with st.spinner(f"Buscando dados de {ticker}..."):
@@ -591,49 +727,57 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Gráfico principal ---
-st.plotly_chart(montar_grafico(df, ticker), use_container_width=True)
+# Notificação rápida (toast) reforçando o alerta, para dar uma resposta mais viva/interativa
+st.toast(f"{classificacao} — {ticker} (score {score:+d})", icon="🔔")
 
-# --- Detalhamento do motor de sinais ---
-st.subheader("🧮 Detalhamento do Motor de Sinais")
-if detalhes_sinais:
-    df_detalhes = pd.DataFrame(
-        [{"Critério": k, "Contribuição": v} for k, v in detalhes_sinais.items()]
-    )
-    st.dataframe(df_detalhes, use_container_width=True, hide_index=True)
-else:
-    st.info("Dados insuficientes para calcular os critérios de sinal neste período/intervalo.")
+# --- Navegação por abas: deixa o painel mais organizado e interativo ---
+aba_grafico, aba_sinais, aba_risco = st.tabs(
+    ["📊 Gráfico Técnico", "🧮 Motor de Sinais", "🛡️ Gerenciamento de Risco"]
+)
 
-# --- Gerenciamento de risco automatizado ---
-st.subheader("🛡️ Gerenciamento de Risco Automatizado (baseado em ATR)")
+with aba_grafico:
+    st.plotly_chart(montar_grafico(df, ticker, modo_escuro), use_container_width=True)
 
-sugestao = sugerir_stop_take(preco_atual, atr_atual, score)
+with aba_sinais:
+    st.subheader("🧮 Detalhamento do Motor de Sinais")
+    if detalhes_sinais:
+        df_detalhes = pd.DataFrame(
+            [{"Critério": k, "Contribuição": v} for k, v in detalhes_sinais.items()]
+        )
+        st.dataframe(df_detalhes, use_container_width=True, hide_index=True)
+    else:
+        st.info("Dados insuficientes para calcular os critérios de sinal neste período/intervalo.")
 
-if sugestao is None:
-    st.warning("ATR indisponível — não é possível calcular sugestão de Stop Loss / Take Profit.")
-elif sugestao["direcao"] == "NEUTRO":
-    st.info(
-        "O score atual está na faixa **neutra** — o motor não recomenda entrada agora, "
-        "portanto nenhuma sugestão de Stop Loss / Take Profit é exibida. Aguarde um "
-        "sinal de Compra ou Venda mais definido."
-    )
-else:
-    risco_r = abs(preco_atual - sugestao["stop"])
-    retorno_r = abs(sugestao["alvo"] - preco_atual)
-    rr_ratio = retorno_r / risco_r if risco_r else 0
+with aba_risco:
+    st.subheader("🛡️ Gerenciamento de Risco Automatizado (baseado em ATR)")
 
-    r1, r2, r3, r4 = st.columns(4)
-    r1.metric("Direção Sugerida", sugestao["direcao"])
-    r2.metric("Stop Loss (2x ATR)", f"{sugestao['stop']:,.2f}")
-    r3.metric("Take Profit (4x ATR)", f"{sugestao['alvo']:,.2f}")
-    r4.metric("Relação Risco:Retorno", f"1 : {rr_ratio:.1f}")
+    sugestao = sugerir_stop_take(preco_atual, atr_atual, score)
 
-    st.caption(
-        f"Cálculo: preço atual ({preco_atual:,.2f}) "
-        f"{'−' if sugestao['direcao'] == 'COMPRA' else '+'} 2 × ATR ({sugestao['atr']:.2f}) = Stop · "
-        f"{'+' if sugestao['direcao'] == 'COMPRA' else '−'} 4 × ATR = Take Profit. "
-        "Esta é uma sugestão automática baseada em volatilidade, não uma recomendação de investimento."
-    )
+    if sugestao is None:
+        st.warning("ATR indisponível — não é possível calcular sugestão de Stop Loss / Take Profit.")
+    elif sugestao["direcao"] == "NEUTRO":
+        st.info(
+            "O score atual está na faixa **neutra** — o motor não recomenda entrada agora, "
+            "portanto nenhuma sugestão de Stop Loss / Take Profit é exibida. Aguarde um "
+            "sinal de Compra ou Venda mais definido."
+        )
+    else:
+        risco_r = abs(preco_atual - sugestao["stop"])
+        retorno_r = abs(sugestao["alvo"] - preco_atual)
+        rr_ratio = retorno_r / risco_r if risco_r else 0
+
+        r1, r2, r3, r4 = st.columns(4)
+        r1.metric("Direção Sugerida", sugestao["direcao"])
+        r2.metric("Stop Loss (2x ATR)", f"{sugestao['stop']:,.2f}")
+        r3.metric("Take Profit (4x ATR)", f"{sugestao['alvo']:,.2f}")
+        r4.metric("Relação Risco:Retorno", f"1 : {rr_ratio:.1f}")
+
+        st.caption(
+            f"Cálculo: preço atual ({preco_atual:,.2f}) "
+            f"{'−' if sugestao['direcao'] == 'COMPRA' else '+'} 2 × ATR ({sugestao['atr']:.2f}) = Stop · "
+            f"{'+' if sugestao['direcao'] == 'COMPRA' else '−'} 4 × ATR = Take Profit. "
+            "Esta é uma sugestão automática baseada em volatilidade, não uma recomendação de investimento."
+        )
 
 st.divider()
 st.caption(
