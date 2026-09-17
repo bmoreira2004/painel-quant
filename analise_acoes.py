@@ -57,12 +57,23 @@ st.set_page_config(page_title="Painel Quant — Análise de Ações", layout="wi
 
 
 # ==============================================================================
-# CATÁLOGO DE PRODUTOS DA B3
+# CATÁLOGO DE PRODUTOS DA B3 (+ criptomoedas e commodities via Yahoo Finance)
 # ==============================================================================
-# Estrutura: PAINEL -> SEGMENTO -> { TICKER: "Nome do produto" }
+# Estrutura: PAINEL -> SEGMENTO -> { TICKER_YFINANCE: "Nome do produto" }
+# O ticker já é o código completo usado pelo yfinance (com ".SA" para ativos
+# da B3, "-USD" para criptomoedas, "=F" para commodities/futuros) — assim o
+# app não precisa adivinhar qual sufixo aplicar para cada tipo de ativo.
+#
 # Esta é uma curadoria dos ativos mais líquidos/conhecidos de cada categoria —
-# a B3 lista centenas de produtos, então nem todos cabem aqui. Se o ativo que
-# você procura não estiver na lista, use a opção "Digitar ticker manualmente".
+# a B3 (e o mercado global) listam muito mais produtos do que cabem aqui. Se o
+# ativo que você procura não estiver na lista, use "Digitar ticker manualmente".
+#
+# Sobre a fonte dos dados: você pediu para usar como base o Investidor10, mas
+# ele não tem uma API pública para desenvolvedores (confirmei isso antes de
+# montar esta lista) — então o catálogo abaixo cobre as MESMAS categorias que
+# o Investidor10 mostra (ações, FIIs, ETFs, BDRs, cripto, commodities,
+# fiagros), só que os preços/histórico continuam vindo do Yahoo Finance, que
+# é a fonte que já funciona neste projeto.
 #
 # IMPORTANTE: só entram aqui categorias de produtos NEGOCIADOS EM BOLSA, com
 # histórico público de preço (OHLC) compatível com candlestick e osciladores
@@ -72,101 +83,116 @@ st.set_page_config(page_title="Painel Quant — Análise de Ações", layout="wi
 PRODUTOS_B3 = {
     "Ações Brasileiras": {
         "Bancos e Serviços Financeiros": {
-            "ITUB4": "Itaú Unibanco", "BBDC4": "Bradesco", "BBAS3": "Banco do Brasil",
-            "SANB11": "Santander Brasil", "BPAC11": "BTG Pactual", "B3SA3": "B3",
-            "ITSA4": "Itaúsa",
+            "ITUB4.SA": "Itaú Unibanco", "BBDC4.SA": "Bradesco", "BBAS3.SA": "Banco do Brasil",
+            "SANB11.SA": "Santander Brasil", "BPAC11.SA": "BTG Pactual", "B3SA3.SA": "B3",
+            "ITSA4.SA": "Itaúsa",
         },
         "Petróleo, Gás e Combustíveis": {
-            "PETR4": "Petrobras PN", "PETR3": "Petrobras ON", "PRIO3": "PetroRio",
-            "UGPA3": "Ultrapar", "VBBR3": "Vibra Energia", "RRRP3": "3R Petroleum",
+            "PETR4.SA": "Petrobras PN", "PETR3.SA": "Petrobras ON", "PRIO3.SA": "PetroRio",
+            "UGPA3.SA": "Ultrapar", "VBBR3.SA": "Vibra Energia", "RRRP3.SA": "3R Petroleum",
         },
         "Mineração e Siderurgia": {
-            "VALE3": "Vale", "CSNA3": "CSN", "GGBR4": "Gerdau", "USIM5": "Usiminas",
-            "CMIN3": "CSN Mineração", "GOAU4": "Metalúrgica Gerdau",
+            "VALE3.SA": "Vale", "CSNA3.SA": "CSN", "GGBR4.SA": "Gerdau", "USIM5.SA": "Usiminas",
+            "CMIN3.SA": "CSN Mineração", "GOAU4.SA": "Metalúrgica Gerdau",
         },
         "Energia Elétrica": {
-            "ELET3": "Eletrobras ON", "ELET6": "Eletrobras PNB", "CMIG4": "Cemig",
-            "CPLE6": "Copel", "EGIE3": "Engie Brasil", "EQTL3": "Equatorial",
-            "TAEE11": "Taesa", "CPFE3": "CPFL Energia",
+            "ELET3.SA": "Eletrobras ON", "ELET6.SA": "Eletrobras PNB", "CMIG4.SA": "Cemig",
+            "CPLE6.SA": "Copel", "EGIE3.SA": "Engie Brasil", "EQTL3.SA": "Equatorial",
+            "TAEE11.SA": "Taesa", "CPFE3.SA": "CPFL Energia",
         },
         "Varejo e Consumo": {
-            "MGLU3": "Magazine Luiza", "LREN3": "Lojas Renner", "ARZZ3": "Arezzo",
-            "PETZ3": "Petz", "VIVA3": "Vivara", "ASAI3": "Assaí",
-            "CRFB3": "Carrefour Brasil",
+            "MGLU3.SA": "Magazine Luiza", "LREN3.SA": "Lojas Renner", "ARZZ3.SA": "Arezzo",
+            "PETZ3.SA": "Petz", "VIVA3.SA": "Vivara", "ASAI3.SA": "Assaí",
+            "CRFB3.SA": "Carrefour Brasil",
         },
         "Bebidas e Alimentos": {
-            "ABEV3": "Ambev", "JBSS3": "JBS", "BRFS3": "BRF", "MRFG3": "Marfrig",
-            "SMTO3": "São Martinho", "BEEF3": "Minerva",
+            "ABEV3.SA": "Ambev", "JBSS3.SA": "JBS", "BRFS3.SA": "BRF", "MRFG3.SA": "Marfrig",
+            "SMTO3.SA": "São Martinho", "BEEF3.SA": "Minerva",
         },
         "Papel e Celulose": {
-            "SUZB3": "Suzano", "KLBN11": "Klabin",
+            "SUZB3.SA": "Suzano", "KLBN11.SA": "Klabin",
         },
         "Bens de Capital e Industrial": {
-            "WEGE3": "WEG", "EMBR3": "Embraer", "RAPT4": "Randon",
+            "WEGE3.SA": "WEG", "EMBR3.SA": "Embraer", "RAPT4.SA": "Randon",
         },
         "Saúde": {
-            "RDOR3": "Rede D'Or", "HAPV3": "Hapvida", "FLRY3": "Fleury", "RADL3": "Raia Drogasil",
-            "QUAL3": "Qualicorp",
+            "RDOR3.SA": "Rede D'Or", "HAPV3.SA": "Hapvida", "FLRY3.SA": "Fleury", "RADL3.SA": "Raia Drogasil",
+            "QUAL3.SA": "Qualicorp",
         },
         "Tecnologia e Telecom": {
-            "TOTS3": "Totvs", "VIVT3": "Telefônica Brasil (Vivo)", "TIMS3": "TIM",
+            "TOTS3.SA": "Totvs", "VIVT3.SA": "Telefônica Brasil (Vivo)", "TIMS3.SA": "TIM",
         },
         "Construção Civil": {
-            "CYRE3": "Cyrela", "MRVE3": "MRV", "EZTC3": "Eztec", "TEND3": "Tenda",
+            "CYRE3.SA": "Cyrela", "MRVE3.SA": "MRV", "EZTC3.SA": "Eztec", "TEND3.SA": "Tenda",
         },
         "Transporte e Logística": {
-            "RENT3": "Localiza", "RAIL3": "Rumo", "CCRO3": "CCR", "AZUL4": "Azul",
+            "RENT3.SA": "Localiza", "RAIL3.SA": "Rumo", "CCRO3.SA": "CCR", "AZUL4.SA": "Azul",
         },
         "Seguros": {
-            "BBSE3": "BB Seguridade", "PSSA3": "Porto Seguro", "CXSE3": "Caixa Seguridade",
+            "BBSE3.SA": "BB Seguridade", "PSSA3.SA": "Porto Seguro", "CXSE3.SA": "Caixa Seguridade",
         },
         "Agronegócio": {
-            "SLCE3": "SLC Agrícola", "AGRO3": "BrasilAgro",
+            "SLCE3.SA": "SLC Agrícola", "AGRO3.SA": "BrasilAgro",
         },
     },
     "Fundos Imobiliários (FIIs)": {
         "Papel / Recebíveis": {
-            "MXRF11": "Maxi Renda", "KNCR11": "Kinea Rendimentos", "KNIP11": "Kinea Índices de Preços",
-            "IRDM11": "Iridium Recebíveis", "CPTS11": "Capitânia Securities", "RECR11": "REC Recebíveis Imobiliários",
-            "VGIP11": "Valora CRI Índice de Preços",
+            "MXRF11.SA": "Maxi Renda", "KNCR11.SA": "Kinea Rendimentos", "KNIP11.SA": "Kinea Índices de Preços",
+            "IRDM11.SA": "Iridium Recebíveis", "CPTS11.SA": "Capitânia Securities", "RECR11.SA": "REC Recebíveis Imobiliários",
+            "VGIP11.SA": "Valora CRI Índice de Preços",
         },
         "Tijolo (Lajes, Shoppings e Logística)": {
-            "KNRI11": "Kinea Renda Imobiliária", "HGLG11": "CSHG Logística", "XPML11": "XP Malls",
-            "VISC11": "Vinci Shopping Centers", "HGRE11": "CSHG Real Estate", "BRCO11": "Bresco Logística",
-            "VILG11": "Vinci Logística", "PVBI11": "Pátria Edifícios Corporativos",
+            "KNRI11.SA": "Kinea Renda Imobiliária", "HGLG11.SA": "CSHG Logística", "XPML11.SA": "XP Malls",
+            "VISC11.SA": "Vinci Shopping Centers", "HGRE11.SA": "CSHG Real Estate", "BRCO11.SA": "Bresco Logística",
+            "VILG11.SA": "Vinci Logística", "PVBI11.SA": "Pátria Edifícios Corporativos",
         },
         "Fundo de Fundos (FOFs)": {
-            "BCFF11": "BTG Pactual Fundo de Fundos", "HFOF11": "Hedge FOFII", "RBFF11": "Rio Bravo FoF",
+            "BCFF11.SA": "BTG Pactual Fundo de Fundos", "HFOF11.SA": "Hedge FOFII", "RBFF11.SA": "Rio Bravo FoF",
         },
     },
     "Fundos de Índice (ETFs)": {
         "Índices e Renda Variável": {
-            "BOVA11": "iShares Ibovespa", "SMAL11": "iShares Small Cap", "IVVB11": "iShares S&P 500",
-            "DIVO11": "It Now IDIV (Dividendos)", "GOLD11": "It Now Ouro", "HASH11": "Hashdex Cripto",
-            "FIND11": "It Now Financeiro", "ISUS11": "It Now ISE (Sustentabilidade)",
+            "BOVA11.SA": "iShares Ibovespa", "SMAL11.SA": "iShares Small Cap", "IVVB11.SA": "iShares S&P 500",
+            "DIVO11.SA": "It Now IDIV (Dividendos)", "GOLD11.SA": "It Now Ouro", "HASH11.SA": "Hashdex Cripto",
+            "FIND11.SA": "It Now Financeiro", "ISUS11.SA": "It Now ISE (Sustentabilidade)",
         },
     },
     "Ações Globais (BDRs)": {
         "Tecnologia": {
-            "AAPL34": "Apple", "MSFT34": "Microsoft", "GOGL34": "Alphabet (Google)",
-            "AMZO34": "Amazon", "NVDC34": "Nvidia", "META34": "Meta", "NFLX34": "Netflix",
-            "TSLA34": "Tesla", "INTC34": "Intel",
+            "AAPL34.SA": "Apple", "MSFT34.SA": "Microsoft", "GOGL34.SA": "Alphabet (Google)",
+            "AMZO34.SA": "Amazon", "NVDC34.SA": "Nvidia", "META34.SA": "Meta", "NFLX34.SA": "Netflix",
+            "TSLA34.SA": "Tesla", "INTC34.SA": "Intel",
         },
         "Consumo e Financeiro": {
-            "DISB34": "Disney", "COCA34": "Coca-Cola", "MCDC34": "McDonald's",
-            "JPMC34": "JPMorgan", "BOAC34": "Bank of America", "WALM34": "Walmart",
-            "VISA34": "Visa", "MSCD34": "Mastercard",
+            "DISB34.SA": "Disney", "COCA34.SA": "Coca-Cola", "MCDC34.SA": "McDonald's",
+            "JPMC34.SA": "JPMorgan", "BOAC34.SA": "Bank of America", "WALM34.SA": "Walmart",
+            "VISA34.SA": "Visa", "MSCD34.SA": "Mastercard",
+        },
+    },
+    "Fiagros": {
+        "Crédito e Recebíveis do Agronegócio": {
+            "KNCA11.SA": "Kinea Crédito Agro", "RZAG11.SA": "Riza Agro", "VGIA11.SA": "Valora CRA",
+            "CPTR11.SA": "Capitânia Agro", "RURA11.SA": "Itaú Asset Rural", "SNAG11.SA": "Suno Agro",
+            "XPCA11.SA": "XP Crédito Agro",
+        },
+    },
+    "Criptomoedas": {
+        "Principais Criptomoedas": {
+            "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
+            "BNB-USD": "BNB", "XRP-USD": "XRP", "ADA-USD": "Cardano", "DOGE-USD": "Dogecoin",
+        },
+    },
+    "Commodities": {
+        "Metais e Energia": {
+            "GC=F": "Ouro", "SI=F": "Prata", "CL=F": "Petróleo WTI",
+            "BZ=F": "Petróleo Brent", "NG=F": "Gás Natural", "HG=F": "Cobre",
+        },
+        "Agrícolas": {
+            "ZC=F": "Milho", "ZS=F": "Soja", "ZW=F": "Trigo", "KC=F": "Café", "SB=F": "Açúcar",
         },
     },
 }
 
-# ==============================================================================
-# PAINÉIS SEM DADOS DE MERCADO (renda fixa, cotas e direitos de subscrição)
-# ==============================================================================
-# Estes produtos existem no Toro, no Nubank e em outras corretoras, mas NÃO
-# são negociados em bolsa com candlestick/OHLC público — por isso este painel
-# técnico (RSI, MACD, Bollinger etc.) não se aplica a eles. Eles aparecem na
-# lista de painéis só para explicar essa diferença, não para análise.
 # ==============================================================================
 # PAINÉIS SEM DADOS DE MERCADO (renda fixa, cotas e direitos de subscrição)
 # ==============================================================================
@@ -194,6 +220,9 @@ CORES_PAINEL = {
     "Fundos Imobiliários (FIIs)": "#8D6E63",  # marrom (tijolo)
     "Fundos de Índice (ETFs)": "#1565C0",     # azul
     "Ações Globais (BDRs)": "#6A1B9A",        # roxo
+    "Fiagros": "#827717",                     # verde-oliva (agro)
+    "Criptomoedas": "#F57F17",                # laranja/dourado
+    "Commodities": "#4E342E",                 # marrom terroso
     "Fundos de Investimento": "#5D4037",      # marrom escuro
 }
 COR_PADRAO_PAINEL = "#607D8B"  # usada como fallback (modo "digitar ticker manualmente")
@@ -215,6 +244,36 @@ def col(df: pd.DataFrame, *prefixos: str):
             if c.startswith(prefixo):
                 return c
     return None
+
+
+def ticker_exibicao(ticker_yf: str) -> str:
+    """
+    Remove o sufixo '.SA' (usado nos ativos da B3) para uma exibição mais
+    limpa nas grades e cards. Criptomoedas ('-USD') e commodities ('=F')
+    mantêm o formato original, já que esse sufixo faz parte do próprio nome.
+    """
+    return ticker_yf[:-3] if ticker_yf.endswith(".SA") else ticker_yf
+
+
+def moeda_do_ticker(ticker_yf: str) -> str:
+    """Símbolo de moeda para exibição: R$ para ativos da B3, US$ para os demais (cripto/commodities)."""
+    return "R$" if ticker_yf.endswith(".SA") else "US$"
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def buscar_dividendos(ticker: str) -> pd.Series:
+    """
+    Busca o histórico de dividendos/proventos pagos pelo ativo, via yfinance.
+    A cobertura varia por tipo de ativo: ações e FIIs da B3 costumam ter bom
+    histórico; BDRs, criptomoedas e commodities normalmente não pagam ou não
+    têm esse dado reportado — nesses casos a série volta vazia.
+    """
+    try:
+        acao = yf.Ticker(ticker)
+        serie = acao.dividends
+        return serie if serie is not None else pd.Series(dtype=float)
+    except Exception:
+        return pd.Series(dtype=float)
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -243,8 +302,7 @@ def montar_grade_com_sinais(produtos_do_segmento: dict) -> pd.DataFrame:
     pontuação usados na análise detalhada, e guarda preço, variação e sinal.
     """
     linhas = []
-    for ticker_base, nome in produtos_do_segmento.items():
-        ticker_yf = f"{ticker_base}.SA"
+    for ticker_yf, nome in produtos_do_segmento.items():
         try:
             df_ticker = buscar_dados(ticker_yf, "3mo", "1d")
             if df_ticker.empty or len(df_ticker) < 2:
@@ -258,7 +316,7 @@ def montar_grade_com_sinais(produtos_do_segmento: dict) -> pd.DataFrame:
             variacao_pct = ((preco - preco_ant) / preco_ant * 100) if preco_ant else 0.0
 
             linhas.append({
-                "Ticker": ticker_base,
+                "Ticker": ticker_exibicao(ticker_yf),
                 "_ticker_completo": ticker_yf,
                 "Nome": nome,
                 "Preço": round(preco, 2),
@@ -864,7 +922,11 @@ else:
     ticker = st.sidebar.text_input(
         "Ticker da ação",
         value="PETR4.SA",
-        help="Ações brasileiras (B3) precisam do sufixo .SA. Ex: PETR4.SA, VALE3.SA, ITUB4.SA. Ações americanas: AAPL, MSFT, TSLA.",
+        help=(
+            "Ações brasileiras (B3): sufixo .SA — ex: PETR4.SA, VALE3.SA. "
+            "Ações americanas: AAPL, MSFT, TSLA. Criptomoedas: sufixo -USD — "
+            "ex: BTC-USD, ETH-USD. Commodities/futuros: sufixo =F — ex: GC=F (ouro), CL=F (petróleo)."
+        ),
     ).strip().upper()
 
 periodo = st.sidebar.selectbox(
@@ -934,10 +996,9 @@ if modo_escolha == "Explorar por painel" and painel_escolhido not in PAINEIS_SEM
         ticker = ticker_clicado
     else:
         # Nenhuma linha clicada ainda: usa o primeiro produto do segmento como padrão.
-        primeiro_ticker_base = next(iter(produtos_do_segmento), None)
-        ticker = f"{primeiro_ticker_base}.SA" if primeiro_ticker_base else None
+        ticker = next(iter(produtos_do_segmento), None)
         if ticker:
-            st.caption(f"Nenhum ativo clicado ainda — mostrando **{ticker}** por padrão.")
+            st.caption(f"Nenhum ativo clicado ainda — mostrando **{ticker_exibicao(ticker)}** por padrão.")
 
 if not ticker:
     if modo_escolha == "Explorar por painel" and painel_escolhido in PAINEIS_SEM_DADOS:
@@ -950,12 +1011,14 @@ if not ticker:
         st.info("Digite um ticker na barra lateral e clique em **Analisar Ação** para começar.")
     st.stop()
 
-with st.spinner(f"Buscando dados de {ticker}..."):
+ticker_display = ticker_exibicao(ticker)  # versão "limpa" do ticker, sem .SA, só para exibição
+
+with st.spinner(f"Buscando dados de {ticker_display}..."):
     df_bruto = buscar_dados(ticker, periodo, intervalo)
 
 if df_bruto.empty:
     st.error(
-        f"Não foi possível obter dados para **{ticker}** com período='{periodo}' e "
+        f"Não foi possível obter dados para **{ticker_display}** com período='{periodo}' e "
         f"intervalo='{intervalo}'. Verifique o ticker (ações da B3 precisam do sufixo "
         f"'.SA', ex: PETR4.SA) ou tente uma combinação diferente de período/intervalo."
     )
@@ -985,7 +1048,7 @@ p5.metric("Variação", f"{variacao_pct:+.2f}%")
 # --- Linha de métricas principais ---
 col_a, col_b, col_c = st.columns(3)
 col_a.metric(
-    label=f"Preço Atual — {ticker}",
+    label=f"Preço Atual — {ticker_display}",
     value=f"{preco_atual:,.2f}",
     delta=f"{variacao:+.2f} ({variacao_pct:+.2f}%)",
 )
@@ -999,18 +1062,19 @@ st.markdown(
     <div style="background-color:{cor_fundo}; color:{cor_texto}; padding:18px 24px;
                 border-radius:12px; text-align:center; font-size:26px; font-weight:700;
                 margin: 10px 0 20px 0;">
-        {classificacao} — {ticker} <span style="font-size:16px; font-weight:400;">(score: {score:+d})</span>
+        {classificacao} — {ticker_display} <span style="font-size:16px; font-weight:400;">(score: {score:+d})</span>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
 # Notificação rápida (toast) reforçando o alerta, para dar uma resposta mais viva/interativa
-st.toast(f"{classificacao} — {ticker} (score {score:+d})", icon="🔔")
+st.toast(f"{classificacao} — {ticker_display} (score {score:+d})", icon="🔔")
 
 # --- Navegação por abas: deixa o painel mais organizado e interativo ---
-aba_visao, aba_grafico, aba_sinais, aba_risco = st.tabs(
-    ["📋 Visão Geral", "📊 Gráfico Técnico", "🧮 Motor de Sinais", "🛡️ Gerenciamento de Risco"]
+aba_visao, aba_grafico, aba_sinais, aba_risco, aba_calculadora, aba_indices = st.tabs(
+    ["📋 Visão Geral", "📊 Gráfico Técnico", "🧮 Motor de Sinais", "🛡️ Gerenciamento de Risco",
+     "💰 Calculadora", "📇 Índices"]
 )
 
 with aba_visao:
@@ -1028,7 +1092,7 @@ with aba_visao:
         st.info("Dados insuficientes para montar a visão geral neste período/intervalo.")
 
 with aba_grafico:
-    st.plotly_chart(montar_grafico(df, ticker, modo_escuro), use_container_width=True)
+    st.plotly_chart(montar_grafico(df, ticker_display, modo_escuro), use_container_width=True)
 
 with aba_sinais:
     st.subheader("🧮 Detalhamento do Motor de Sinais")
@@ -1070,6 +1134,116 @@ with aba_risco:
             f"{'+' if sugestao['direcao'] == 'COMPRA' else '−'} 4 × ATR = Take Profit. "
             "Esta é uma sugestão automática baseada em volatilidade, não uma recomendação de investimento."
         )
+
+with aba_calculadora:
+    st.subheader("💰 Calculadora de Dividendos e Posição")
+    st.caption(f"Cálculo para {ticker_display}, com base no preço atual e no histórico de proventos do Yahoo Finance.")
+
+    moeda = moeda_do_ticker(ticker)
+    quantidade = st.number_input(
+        "Quantidade (ações / cotas / unidades)",
+        min_value=1, value=100, step=1, key="qtd_calculadora",
+    )
+
+    valor_posicao = quantidade * preco_atual
+
+    st.markdown("##### 📥📤 Valor total para compra ou venda")
+    vc1, vc2 = st.columns(2)
+    vc1.metric(f"Comprar {quantidade} unidades hoje", f"{moeda} {valor_posicao:,.2f}")
+    vc2.metric(f"Vender {quantidade} unidades hoje", f"{moeda} {valor_posicao:,.2f}")
+
+    if sugestao and sugestao["direcao"] != "NEUTRO":
+        st.caption("Cenários usando o Stop Loss / Take Profit sugeridos na aba \"Gerenciamento de Risco\":")
+        vc3, vc4 = st.columns(2)
+        vc3.metric("Se atingir o Take Profit sugerido", f"{moeda} {quantidade * sugestao['alvo']:,.2f}")
+        vc4.metric("Se disparar o Stop Loss sugerido", f"{moeda} {quantidade * sugestao['stop']:,.2f}")
+
+    st.divider()
+    st.markdown("##### 💵 Dividendos / Proventos")
+
+    dividendos = buscar_dividendos(ticker)
+    if dividendos.empty:
+        st.info(
+            "Este ativo não tem histórico de dividendos disponível no Yahoo Finance — comum em "
+            "BDRs, criptomoedas, commodities, ou ativos que simplesmente não pagaram provento no período coberto."
+        )
+    else:
+        # tz=dividendos.index.tz funciona tanto se o índice tiver fuso horário
+        # quanto se for "naive" (tz=None é um valor válido para pd.Timestamp.now)
+        limite_12m = pd.Timestamp.now(tz=dividendos.index.tz) - pd.Timedelta(days=365)
+        dividendos_12m = dividendos[dividendos.index >= limite_12m]
+        total_por_unidade_12m = float(dividendos_12m.sum())
+        dividend_yield_12m = (total_por_unidade_12m / preco_atual * 100) if preco_atual else 0.0
+        dividendos_estimados = total_por_unidade_12m * quantidade
+
+        dv1, dv2, dv3 = st.columns(3)
+        dv1.metric("Proventos por unidade (12m)", f"{moeda} {total_por_unidade_12m:,.4f}")
+        dv2.metric("Dividend Yield (12m)", f"{dividend_yield_12m:.2f}%")
+        dv3.metric(f"Estimado para {quantidade} unidades (12m)", f"{moeda} {dividendos_estimados:,.2f}")
+
+        st.caption("Últimos pagamentos registrados:")
+        tabela_dividendos = dividendos.sort_index(ascending=False).head(12).rename("Valor por unidade").to_frame()
+        st.dataframe(tabela_dividendos, use_container_width=True)
+
+        st.caption(
+            "O Dividend Yield acima é calculado com base nos proventos pagos nos últimos 12 "
+            "meses sobre o preço atual — não é garantia de rendimento futuro."
+        )
+
+with aba_indices:
+    st.subheader("📇 Índices — Histórico de Todos os Produtos")
+    st.caption("Explore o histórico de qualquer produto do catálogo, independente do que está selecionado na barra lateral.")
+
+    ic1, ic2, ic3 = st.columns(3)
+    with ic1:
+        painel_idx = st.selectbox("Painel", options=list(PRODUTOS_B3.keys()), key="idx_painel")
+    with ic2:
+        segmento_idx = st.selectbox("Segmento", options=list(PRODUTOS_B3[painel_idx].keys()), key="idx_segmento")
+    produtos_idx = PRODUTOS_B3[painel_idx][segmento_idx]
+    opcoes_idx = [f"{ticker_exibicao(tk)} — {nome}" for tk, nome in produtos_idx.items()]
+    with ic3:
+        produto_idx_escolhido = st.selectbox("Produto", options=opcoes_idx, key="idx_produto")
+
+    tickers_idx = list(produtos_idx.keys())
+    ticker_idx = tickers_idx[opcoes_idx.index(produto_idx_escolhido)]
+
+    periodo_idx = st.select_slider(
+        "Período do histórico", options=["1mo", "6mo", "1y", "2y", "5y"], value="1y", key="idx_periodo",
+    )
+
+    with st.spinner(f"Buscando histórico de {ticker_exibicao(ticker_idx)}..."):
+        df_idx = buscar_dados(ticker_idx, periodo_idx, "1d")
+
+    if df_idx.empty:
+        st.warning("Sem dados históricos disponíveis para este produto/período no Yahoo Finance.")
+    else:
+        fig_idx = go.Figure()
+        fig_idx.add_trace(go.Scatter(
+            x=df_idx.index, y=df_idx["Close"], mode="lines",
+            name=ticker_exibicao(ticker_idx),
+            line=dict(color=CORES_PAINEL.get(painel_idx, COR_PADRAO_PAINEL), width=2),
+        ))
+        fig_idx.update_layout(
+            title=f"{ticker_exibicao(ticker_idx)} — {produtos_idx[ticker_idx]}",
+            height=420,
+            margin=dict(l=10, r=10, t=40, b=10),
+            template="plotly_dark" if modo_escuro else "plotly_white",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)" if modo_escuro else "white",
+        )
+        st.plotly_chart(fig_idx, use_container_width=True)
+
+        maximo_idx = df_idx["Close"].max()
+        minimo_idx = df_idx["Close"].min()
+        primeiro_idx = df_idx["Close"].iloc[0]
+        ultimo_idx = df_idx["Close"].iloc[-1]
+        variacao_periodo_idx = ((ultimo_idx - primeiro_idx) / primeiro_idx * 100) if primeiro_idx else 0
+
+        mi1, mi2, mi3, mi4 = st.columns(4)
+        mi1.metric("Preço atual", f"{ultimo_idx:,.2f}")
+        mi2.metric("Máxima do período", f"{maximo_idx:,.2f}")
+        mi3.metric("Mínima do período", f"{minimo_idx:,.2f}")
+        mi4.metric("Variação no período", f"{variacao_periodo_idx:+.2f}%")
 
 st.divider()
 st.caption(
