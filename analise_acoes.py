@@ -222,6 +222,90 @@ def buscar_dados(ticker: str, periodo: str, intervalo: str) -> pd.DataFrame:
     return df
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def buscar_grade_cotacoes(tickers_yf: list) -> pd.DataFrame:
+    """
+    Busca uma cotação rápida (últimos dias) para uma LISTA de tickers de uma
+    vez só — usada para montar a grade de cotações estilo "Profit Pro" (a
+    watchlist clicável da tela principal). Buscar em lote é bem mais rápido
+    do que fazer uma chamada por ativo.
+    """
+    if not tickers_yf:
+        return pd.DataFrame()
+    try:
+        dados = yf.download(
+            tickers=tickers_yf, period="5d", interval="1d",
+            group_by="ticker", progress=False, threads=True,
+        )
+    except Exception:
+        return pd.DataFrame()
+
+    linhas = []
+    for tk in tickers_yf:
+        try:
+            sub = dados[tk] if isinstance(dados.columns, pd.MultiIndex) else dados
+            sub = sub.dropna(how="all")
+            if sub.empty:
+                continue
+            preco_atual = float(sub["Close"].iloc[-1])
+            preco_anterior = float(sub["Close"].iloc[-2]) if len(sub) > 1 else preco_atual
+            variacao_pct = ((preco_atual - preco_anterior) / preco_anterior * 100) if preco_anterior else 0.0
+            volume = sub["Volume"].iloc[-1] if "Volume" in sub.columns else np.nan
+            linhas.append({
+                "Ticker": tk.replace(".SA", ""),
+                "_ticker_completo": tk,
+                "Preço": round(preco_atual, 2),
+                "Variação (%)": round(variacao_pct, 2),
+                "Volume": int(volume) if pd.notna(volume) else 0,
+            })
+        except Exception:
+            continue
+    return pd.DataFrame(linhas)
+
+
+def renderizar_grade_cotacoes(produtos_do_segmento: dict, key_grade: str):
+    """
+    Renderiza a grade de cotações clicável (estilo watchlist da Nelogica
+    Profit Pro) para os produtos de um segmento. Retorna o ticker completo
+    (com .SA) que o usuário clicou, ou None se nenhuma linha foi selecionada.
+    """
+    tickers_yf = [f"{tk}.SA" for tk in produtos_do_segmento]
+    df_grade = buscar_grade_cotacoes(tickers_yf)
+
+    if df_grade.empty:
+        st.warning("Não foi possível carregar as cotações deste segmento agora. Tente novamente em instantes.")
+        return None
+
+    df_grade["Nome"] = df_grade["Ticker"].map(produtos_do_segmento)
+    df_exibicao = df_grade[["Ticker", "Nome", "Preço", "Variação (%)", "Volume"]]
+
+    evento = st.dataframe(
+        df_exibicao,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=key_grade,
+        column_config={
+            "Variação (%)": st.column_config.NumberColumn(format="%.2f%%"),
+            "Volume": st.column_config.NumberColumn(format="%d"),
+        },
+    )
+
+    # Acesso defensivo: versões do Streamlit expõem a seleção como atributo
+    # (evento.selection.rows) ou como dicionário (evento["selection"]["rows"]).
+    selecao = getattr(evento, "selection", None)
+    if selecao is None and isinstance(evento, dict):
+        selecao = evento.get("selection")
+    linhas_selecionadas = []
+    if selecao is not None:
+        linhas_selecionadas = selecao.get("rows") if isinstance(selecao, dict) else getattr(selecao, "rows", [])
+
+    if linhas_selecionadas:
+        return df_grade.iloc[linhas_selecionadas[0]]["_ticker_completo"]
+    return None
+
+
 def calcular_vwap(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calcula o VWAP (Volume Weighted Average Price) manualmente, reiniciando
@@ -713,17 +797,21 @@ if modo_escolha == "Explorar por painel":
     if painel_escolhido in PAINEIS_SEM_DADOS:
         # Painel informativo: produto de renda fixa/cota, sem candlestick disponível.
         ticker = None
+        segmento_escolhido = None
+        produtos_do_segmento = {}
         st.sidebar.warning(PAINEIS_SEM_DADOS[painel_escolhido])
     else:
         segmentos_do_painel = PRODUTOS_B3[painel_escolhido]
         segmento_escolhido = st.sidebar.selectbox("📁 Segmento", options=list(segmentos_do_painel.keys()))
         produtos_do_segmento = segmentos_do_painel[segmento_escolhido]
-        opcoes_produto = [f"{tk} — {nome}" for tk, nome in produtos_do_segmento.items()]
-        produto_escolhido = st.sidebar.selectbox("🏷️ Produto", options=opcoes_produto)
-        ticker_base = produto_escolhido.split(" — ")[0]
-        ticker = f"{ticker_base}.SA"
-        st.sidebar.caption(f"Ticker selecionado: **{ticker}**")
+        st.sidebar.caption(
+            f"{len(produtos_do_segmento)} produto(s) neste segmento — "
+            "clique numa linha da grade de cotações, na tela principal, para escolher."
+        )
+        ticker = None  # definido no corpo principal, a partir do clique na grade
 else:
+    segmento_escolhido = None
+    produtos_do_segmento = {}
     ticker = st.sidebar.text_input(
         "Ticker da ação",
         value="PETR4.SA",
@@ -734,6 +822,7 @@ periodo = st.sidebar.selectbox(
     "Período histórico",
     options=["1d", "5d", "1mo", "6mo", "1y", "2y"],
     index=2,
+    help="'1mo' equivale a ~30 dias corridos — é o padrão usado ao clicar num ativo na grade de cotações.",
 )
 
 intervalo = st.sidebar.selectbox(
@@ -785,6 +874,22 @@ if modo_escolha == "Explorar por painel":
         unsafe_allow_html=True,
     )
 
+# --- Grade de Cotações (estilo Profit Pro): watchlist clicável do segmento ---
+if modo_escolha == "Explorar por painel" and painel_escolhido not in PAINEIS_SEM_DADOS:
+    st.subheader(f"🖥️ Grade de Cotações — {segmento_escolhido}")
+    st.caption("Clique em uma linha para selecionar o ativo e ver a posição do dia, o histórico e o alerta de compra/venda.")
+    with st.spinner("Buscando cotações do segmento..."):
+        ticker_clicado = renderizar_grade_cotacoes(produtos_do_segmento, key_grade=f"grade_{painel_escolhido}_{segmento_escolhido}")
+
+    if ticker_clicado:
+        ticker = ticker_clicado
+    else:
+        # Nenhuma linha clicada ainda: usa o primeiro produto do segmento como padrão.
+        primeiro_ticker_base = next(iter(produtos_do_segmento), None)
+        ticker = f"{primeiro_ticker_base}.SA" if primeiro_ticker_base else None
+        if ticker:
+            st.caption(f"Nenhum ativo clicado ainda — mostrando **{ticker}** por padrão.")
+
 if not ticker:
     if modo_escolha == "Explorar por painel" and painel_escolhido in PAINEIS_SEM_DADOS:
         st.info(
@@ -818,6 +923,15 @@ variacao = preco_atual - preco_anterior
 variacao_pct = (variacao / preco_anterior * 100) if preco_anterior else 0
 atr_col_nome = col(df, "ATR")
 atr_atual = df[atr_col_nome].iloc[-1] if atr_col_nome else None
+
+# --- Posição do Dia (estilo Profit Pro) ---
+st.subheader("📌 Posição do Dia")
+p1, p2, p3, p4, p5 = st.columns(5)
+p1.metric("Abertura", f"{df['Open'].iloc[-1]:,.2f}")
+p2.metric("Máxima", f"{df['High'].iloc[-1]:,.2f}")
+p3.metric("Mínima", f"{df['Low'].iloc[-1]:,.2f}")
+p4.metric("Fechamento / Atual", f"{preco_atual:,.2f}")
+p5.metric("Variação", f"{variacao_pct:+.2f}%")
 
 # --- Linha de métricas principais ---
 col_a, col_b, col_c = st.columns(3)
