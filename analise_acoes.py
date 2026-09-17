@@ -40,6 +40,16 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
 
+# streamlit-autorefresh: usado para a "atualização automática" (aproximação
+# honesta de tempo real, já que o Yahoo Finance é um provedor com atraso e
+# sem streaming de verdade). Import protegido para não derrubar o app caso
+# o pacote não esteja instalado por algum motivo.
+try:
+    from streamlit_autorefresh import st_autorefresh
+    _AUTOREFRESH_DISPONIVEL = True
+except ImportError:
+    _AUTOREFRESH_DISPONIVEL = False
+
 # ==============================================================================
 # CONFIGURAÇÃO DA PÁGINA (precisa ser o primeiro comando Streamlit do script)
 # ==============================================================================
@@ -223,73 +233,90 @@ def buscar_dados(ticker: str, periodo: str, intervalo: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def buscar_grade_cotacoes(tickers_yf: list) -> pd.DataFrame:
+def montar_grade_com_sinais(produtos_do_segmento: dict) -> pd.DataFrame:
     """
-    Busca uma cotação rápida (últimos dias) para uma LISTA de tickers de uma
-    vez só — usada para montar a grade de cotações estilo "Profit Pro" (a
-    watchlist clicável da tela principal). Buscar em lote é bem mais rápido
-    do que fazer uma chamada por ativo.
+    Monta a grade de cotações do segmento já com um sinal de compra/venda
+    calculado para CADA produto — isto é o que conecta o alerta de compra/
+    venda diretamente à grade, no estilo dos monitores de mercado do Profit
+    Pro (linhas/células coloridas por ativo). Para cada ticker, busca um
+    histórico curto (3 meses), roda os mesmos indicadores e o mesmo motor de
+    pontuação usados na análise detalhada, e guarda preço, variação e sinal.
     """
-    if not tickers_yf:
-        return pd.DataFrame()
-    try:
-        dados = yf.download(
-            tickers=tickers_yf, period="5d", interval="1d",
-            group_by="ticker", progress=False, threads=True,
-        )
-    except Exception:
-        return pd.DataFrame()
-
     linhas = []
-    for tk in tickers_yf:
+    for ticker_base, nome in produtos_do_segmento.items():
+        ticker_yf = f"{ticker_base}.SA"
         try:
-            sub = dados[tk] if isinstance(dados.columns, pd.MultiIndex) else dados
-            sub = sub.dropna(how="all")
-            if sub.empty:
+            df_ticker = buscar_dados(ticker_yf, "3mo", "1d")
+            if df_ticker.empty or len(df_ticker) < 2:
                 continue
-            preco_atual = float(sub["Close"].iloc[-1])
-            preco_anterior = float(sub["Close"].iloc[-2]) if len(sub) > 1 else preco_atual
-            variacao_pct = ((preco_atual - preco_anterior) / preco_anterior * 100) if preco_anterior else 0.0
-            volume = sub["Volume"].iloc[-1] if "Volume" in sub.columns else np.nan
+            df_ind = calcular_indicadores(df_ticker)
+            score_ticker, _ = gerar_sinais(df_ind)
+            classificacao_ticker, _, _ = classificar_score(score_ticker)
+
+            preco = float(df_ind["Close"].iloc[-1])
+            preco_ant = float(df_ind["Close"].iloc[-2])
+            variacao_pct = ((preco - preco_ant) / preco_ant * 100) if preco_ant else 0.0
+
             linhas.append({
-                "Ticker": tk.replace(".SA", ""),
-                "_ticker_completo": tk,
-                "Preço": round(preco_atual, 2),
+                "Ticker": ticker_base,
+                "_ticker_completo": ticker_yf,
+                "Nome": nome,
+                "Preço": round(preco, 2),
                 "Variação (%)": round(variacao_pct, 2),
-                "Volume": int(volume) if pd.notna(volume) else 0,
+                "Sinal": classificacao_ticker,
+                "Score": score_ticker,
             })
         except Exception:
             continue
     return pd.DataFrame(linhas)
 
 
+def estilizar_grade(df_exibicao: pd.DataFrame):
+    """Aplica cores de fundo/texto por linha (verde/vermelho), como nos monitores do Profit Pro."""
+    def cor_variacao(v):
+        if v > 0:
+            return "color:#1B5E20; background-color:#C8E6C9; font-weight:700;"
+        if v < 0:
+            return "color:#B71C1C; background-color:#FFCDD2; font-weight:700;"
+        return ""
+
+    def cor_sinal(s):
+        if "COMPRA" in str(s):
+            return "color:#1B5E20; font-weight:700;"
+        if "VENDA" in str(s):
+            return "color:#B71C1C; font-weight:700;"
+        return "color:#757575; font-weight:700;"
+
+    return (
+        df_exibicao.style
+        .map(cor_variacao, subset=["Variação (%)"])
+        .map(cor_sinal, subset=["Sinal"])
+    )
+
+
 def renderizar_grade_cotacoes(produtos_do_segmento: dict, key_grade: str):
     """
     Renderiza a grade de cotações clicável (estilo watchlist da Nelogica
-    Profit Pro) para os produtos de um segmento. Retorna o ticker completo
-    (com .SA) que o usuário clicou, ou None se nenhuma linha foi selecionada.
+    Profit Pro), já com o sinal de compra/venda de cada ativo e cores por
+    variação. Retorna o ticker completo (com .SA) que o usuário clicou, ou
+    None se nenhuma linha foi selecionada ainda.
     """
-    tickers_yf = [f"{tk}.SA" for tk in produtos_do_segmento]
-    df_grade = buscar_grade_cotacoes(tickers_yf)
+    df_grade = montar_grade_com_sinais(produtos_do_segmento)
 
     if df_grade.empty:
         st.warning("Não foi possível carregar as cotações deste segmento agora. Tente novamente em instantes.")
         return None
 
-    df_grade["Nome"] = df_grade["Ticker"].map(produtos_do_segmento)
-    df_exibicao = df_grade[["Ticker", "Nome", "Preço", "Variação (%)", "Volume"]]
+    df_exibicao = df_grade[["Ticker", "Nome", "Preço", "Variação (%)", "Sinal"]]
 
     evento = st.dataframe(
-        df_exibicao,
+        estilizar_grade(df_exibicao),
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
         selection_mode="single-row",
         key=key_grade,
-        column_config={
-            "Variação (%)": st.column_config.NumberColumn(format="%.2f%%"),
-            "Volume": st.column_config.NumberColumn(format="%d"),
-        },
+        column_config={"Variação (%)": st.column_config.NumberColumn(format="%.2f%%")},
     )
 
     # Acesso defensivo: versões do Streamlit expõem a seleção como atributo
@@ -737,6 +764,22 @@ st.sidebar.title("⚙️ Parâmetros de Análise")
 
 modo_escuro = st.sidebar.toggle("🌙 Modo escuro", value=False)
 
+if _AUTOREFRESH_DISPONIVEL:
+    atualizacao_automatica = st.sidebar.toggle(
+        "🔄 Atualização automática (60s)",
+        value=False,
+        help=(
+            "Recarrega a grade e a análise a cada 60 segundos. Importante: isso NÃO é "
+            "streaming em tempo real — o Yahoo Finance (fonte de dados gratuita usada "
+            "aqui) atualiza com atraso, então é só um polling automático no ritmo que "
+            "os dados realmente mudam."
+        ),
+    )
+    if atualizacao_automatica:
+        st_autorefresh(interval=60_000, key="autorefresh_cotacoes")
+else:
+    atualizacao_automatica = False
+
 if modo_escuro:
     st.markdown(
         """
@@ -746,24 +789,25 @@ if modo_escuro:
         section[data-testid="stSidebar"] * { color: #FAFAFA !important; }
         .stApp, .stApp p, .stApp span, .stApp label, .stApp li { color: #FAFAFA; }
         div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] { color: #FAFAFA !important; }
-        div[data-testid="stDataFrame"] { filter: invert(0.92) hue-rotate(180deg); }
 
-        /* Caixas dos menus (Painel / Segmento / Produto / Período / Intervalo) */
-        div[data-baseweb="select"] > div {
+        /* Caixas dos menus (Painel / Segmento / Período / Intervalo): cobre TODOS os
+           elementos internos, não só o wrapper — o texto do valor selecionado fica
+           em uma div/span mais profunda que herda a cor errada se não for forçada. */
+        div[data-baseweb="select"] { background-color: #262730 !important; }
+        div[data-baseweb="select"] div,
+        div[data-baseweb="select"] span {
             background-color: #262730 !important;
             color: #FAFAFA !important;
-            border-color: #3A3B45 !important;
         }
+        div[data-baseweb="select"] > div { border-color: #3A3B45 !important; }
         div[data-baseweb="select"] svg { fill: #FAFAFA !important; }
 
         /* Lista de opções que abre ao clicar (fica fora da sidebar, por isso é à parte) */
-        div[data-baseweb="popover"] li,
-        ul[role="listbox"] li {
+        div[data-baseweb="popover"] * {
             background-color: #262730 !important;
             color: #FAFAFA !important;
         }
-        div[data-baseweb="popover"] li:hover,
-        ul[role="listbox"] li:hover {
+        div[data-baseweb="popover"] li:hover {
             background-color: #3A3B45 !important;
         }
 
@@ -772,6 +816,11 @@ if modo_escuro:
             background-color: #262730 !important;
             color: #FAFAFA !important;
         }
+
+        /* Grade de cotações e demais tabelas: fundo escuro, sem inverter cores
+           (a grade usa verde/vermelho de propósito para variação e sinal, então
+           não pode usar filtro de inversão — isso trocaria as cores certas). */
+        div[data-testid="stDataFrame"] { background-color: #161A23; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -877,8 +926,8 @@ if modo_escolha == "Explorar por painel":
 # --- Grade de Cotações (estilo Profit Pro): watchlist clicável do segmento ---
 if modo_escolha == "Explorar por painel" and painel_escolhido not in PAINEIS_SEM_DADOS:
     st.subheader(f"🖥️ Grade de Cotações — {segmento_escolhido}")
-    st.caption("Clique em uma linha para selecionar o ativo e ver a posição do dia, o histórico e o alerta de compra/venda.")
-    with st.spinner("Buscando cotações do segmento..."):
+    st.caption("Cada linha já mostra o sinal de compra/venda calculado — clique em uma para ver a posição do dia, o histórico e o detalhamento completo.")
+    with st.spinner("Calculando cotações e sinais do segmento..."):
         ticker_clicado = renderizar_grade_cotacoes(produtos_do_segmento, key_grade=f"grade_{painel_escolhido}_{segmento_escolhido}")
 
     if ticker_clicado:
